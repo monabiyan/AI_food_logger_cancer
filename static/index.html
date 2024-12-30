@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Diet Logger</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    /* Global Styles */
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9fafc;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 2em;
+      color: #2c3e50;
+    }
+
+    /* Input Section */
+    .input-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .input-container input {
+      flex: 1;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    /* Control Buttons */
+    .controls {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .controls button {
+      padding: 10px 20px;
+      font-size: 1em;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    #recordButton {
+      background-color: #0078D7;
+      color: white;
+    }
+
+    #stopButton {
+      background-color: #E74C3C;
+      color: white;
+    }
+
+    #showLogsButton {
+      background-color: #2ECC71;
+      color: white;
+    }
+
+    /* Transcription & Processed Data */
+    .transcription, .processed-data {
+      margin-top: 20px;
+      padding: 10px;
+      background: #f4f6f9;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      min-height: 50px;
+      overflow-y: auto;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .transcription {
+      color: #34495e;
+    }
+
+    .processed-data {
+      color: #27ae60;
+    }
+
+    /* Logs Table */
+    .logs-container {
+      margin-top: 30px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+
+    table th {
+      background-color: #2c3e50;
+      color: white;
+    }
+
+    table tr:nth-child(even) {
+      background-color: #f9fafc;
+    }
+
+    table tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    .empty-state {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #7f8c8d;
+    }
+
+    .action-btn {
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    .edit-btn {
+      color: #f39c12;
+    }
+
+    .delete-btn {
+      color: #e74c3c;
+    }
+
+    .save-btn {
+      color: #27ae60;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Voice Diet Logger</h1>
+    
+    <div class="input-container">
+      <input type="text" id="patientId" placeholder="Enter Patient ID">
+    </div>
+
+    <div class="controls">
+      <button id="recordButton"><i class="fas fa-microphone"></i> Start Recording</button>
+      <button id="stopButton"><i class="fas fa-stop"></i> Stop Recording</button>
+      <button id="showLogsButton"><i class="fas fa-table"></i> Show All Logs</button>
+    </div>
+
+    <h3>📝 Transcribed Text:</h3>
+    <div id="transcribedText" class="transcription"></div>
+
+    <h3>🤖 Processed Data (GPT-4):</h3>
+    <div id="processedData" class="processed-data"></div>
+
+    <div class="logs-container">
+      <h3>📊 Patient Logs:</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Patient ID</th>
+            <th>Food</th>
+            <th>Amount</th>
+            <th>Hour</th>
+            <th>Date</th>
+            <th>Recorded At</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let recognition;
+    let transcript = '';
+
+    const patientIdField = document.getElementById('patientId');
+    const transcribedText = document.getElementById('transcribedText');
+    const processedData = document.getElementById('processedData');
+    const logsTableBody = document.getElementById('logsTableBody');
+
+    // Speech Recognition
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = true;
+
+      recognition.onresult = (event) => {
+        transcript = Array.from(event.results).map(result => result[0].transcript).join('');
+        transcribedText.textContent = transcript;
+      };
+
+      document.getElementById('recordButton').onclick = () => recognition.start();
+      document.getElementById('stopButton').onclick = () => {
+        recognition.stop();
+        fetch('/process-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patient_id: patientIdField.value,
+            text: transcript
+          })
+        }).then(res => res.json())
+          .then(data => processedData.textContent = JSON.stringify(data.structured_data, null, 2));
+      };
+    }
+
+    async function fetchLogs() {
+      const response = await fetch('/meal-logs/');
+      const logs = await response.json();
+      logsTableBody.innerHTML = logs.map(log => `
+          <tr>
+              <td>${log.id}</td>
+              <td>${log.patient_id}</td>
+              <td><input value="${log.food}"></td>
+              <td><input value="${log.amount}"></td>
+              <td><input value="${log.hour}"></td>
+              <td><input value="${log.date}"></td>
+              <td>${log.recorded_at}</td>
+              <td>
+                  <button class="save-btn action-btn" onclick="updateLog(${log.id})">💾</button>
+                  <button class="delete-btn action-btn" onclick="deleteLog(${log.id})">🗑️</button>
+              </td>
+          </tr>
+      `).join('');
+
+    }
+
+    async function deleteLog(id) {
+      await fetch(`/delete-log/${id}`, { method: 'DELETE' });
+      fetchLogs();
+    }
+
+    async function updateLog(logId) {
+        const row = document.querySelector(`[onclick="updateLog(${logId})"]`).closest('tr');
+        const updatedData = {
+            food: row.cells[2].querySelector('input').value,
+            amount: row.cells[3].querySelector('input').value,
+            hour: row.cells[4].querySelector('input').value,
+            date: row.cells[5].querySelector('input').value,
+        };
+
+        try {
+            const response = await fetch(`/update-log/${logId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedData)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update log');
+            }
+
+            const result = await response.json();
+            console.log('Update successful:', result);
+
+            // Refresh the logs table after a successful update
+            fetchLogs();
+        } catch (error) {
+            console.error('Error updating log:', error);
+            alert('Failed to update log. Please try again.');
+        }
+    }
+
+
+    document.getElementById('showLogsButton').onclick = fetchLogs;
+  </script>
+</body>
+</html>
