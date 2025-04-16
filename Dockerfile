@@ -19,8 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application files
 COPY . .
 
-# Expose port
+# Expose default port (can be any number, won't matter in Azure)
 EXPOSE 80
 
-# Start the application (database initializes on app startup)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+# Start the application using dynamic port
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-80}"]
