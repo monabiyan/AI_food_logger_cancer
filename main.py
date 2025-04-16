@@ -19,7 +19,7 @@ models.Base.metadata.create_all(bind=engine)
 # GPT-4 Configuration
 os.environ["OPENAI_API_TYPE"] = "azure"
 os.environ["OPENAI_API_BASE"] = "https://pmedgpt4.openai.azure.com/"
-os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = "9580dd8c74ca4270ae06022f7caacb1a"
 os.environ["OPENAI_API_VERSION"] = "2023-05-15"
 
 from langchain.chat_models import AzureChatOpenAI
